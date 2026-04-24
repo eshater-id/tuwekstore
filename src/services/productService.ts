@@ -138,3 +138,67 @@ export const updateStoreSettings = async (settings: StoreSettings) => {
     handleFirestoreError(error, "update", "settings/store");
   }
 };
+
+// Admin Management Functions
+export interface AdminUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  addedAt: number;
+  addedBy: string;
+}
+
+export const getAdmins = async () => {
+  try {
+    const q = query(collection(db, "admins"), orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      uid: doc.id,
+      ...doc.data()
+    } as AdminUser));
+  } catch (error) {
+    handleFirestoreError(error, "list", "admins");
+  }
+};
+
+export const addAdmin = async (email: string, displayName?: string) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User tidak terautentikasi");
+    
+    // Cari user berdasarkan email dari Firebase Auth (via backend jika perlu)
+    // Untuk saat ini, kita akan menyimpan email dan admin dapat diedit
+    const adminDoc = {
+      email,
+      displayName: displayName || email.split("@")[0],
+      addedAt: Date.now(),
+      addedBy: user.email || "unknown"
+    };
+    
+    // Simpan dengan email sebagai document ID (akan diupdate saat user pertama login)
+    await addDoc(collection(db, "admins"), adminDoc);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "create", "admins");
+  }
+};
+
+export const removeAdmin = async (uid: string) => {
+  try {
+    const docRef = doc(db, "admins", uid);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "delete", `admins/${uid}`);
+  }
+};
+
+export const updateAdmin = async (uid: string, data: Partial<AdminUser>) => {
+  try {
+    const docRef = doc(db, "admins", uid);
+    await updateDoc(docRef, data as any);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, "update", `admins/${uid}`);
+  }
+};
