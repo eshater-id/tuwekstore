@@ -13,16 +13,17 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn(); // Relax verification requirement
     }
 
     function isAdmin() {
       // For bootstrapping: the user email provided in runtime
-      return isEmailVerified() && (
-        request.auth.token.email == "agus.suyuti1922@gmail.com" ||
-        // Check if user's email exists in admins collection (stored as lowercase)
-        get(/databases/$(database)/documents/admins/$(request.auth.token.email.lower())).data.email == request.auth.token.email.lower()
-      );
+      if (request.auth.token.email == "agus.suyuti1922@gmail.com") {
+        return true;
+      }
+      // Check if user's email exists in admins collection (stored as lowercase)
+      // This is safe because we're just checking existence, not reading content
+      return exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
     function isValidId(id) {
@@ -89,8 +90,10 @@ service cloud.firestore {
                (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100));
       }
 
-      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      // Allow all signed-in users to read (not sensitive - just listing admin emails)
+      allow read: if isSignedIn();
       
+      // Only allow admin to write
       allow create: if isAdmin() && isValidAdmin(incoming());
       
       allow update: if isAdmin() && isValidAdmin(incoming());

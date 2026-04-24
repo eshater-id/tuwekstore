@@ -153,11 +153,17 @@ export const getAdmins = async () => {
   try {
     const q = query(collection(db, "admins"), orderBy("addedAt", "desc"));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const adminsList = snapshot.docs.map(doc => ({
       uid: doc.id,
       ...doc.data()
     } as AdminUser));
+    
+    console.log("✓ Fetched admins from Firestore:", adminsList.length, "admins");
+    console.table(adminsList);
+    
+    return adminsList;
   } catch (error) {
+    console.error("Error in getAdmins:", error);
     handleFirestoreError(error, "list", "admins");
   }
 };
@@ -177,11 +183,16 @@ export const addAdmin = async (email: string, displayName?: string) => {
       addedBy: user.email || "unknown"
     };
     
+    console.log("Creating admin document:", { docId, ...adminDoc });
+    
     // Simpan dengan lowercase email sebagai document ID
     const docRef = doc(db, "admins", docId);
     await setDoc(docRef, adminDoc);
+    
+    console.log("✓ Admin document created successfully");
     return true;
   } catch (error) {
+    console.error("Error in addAdmin:", error);
     handleFirestoreError(error, "create", "admins");
   }
 };

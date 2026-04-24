@@ -31,18 +31,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (currUser) => {
       setUser(currUser);
       if (currUser) {
-        // Check if user is in admins collection or is the bootstrap email
+        // Check if user is the bootstrap admin
         const isBootstrapAdmin = currUser.email === "agus.suyuti1922@gmail.com";
         
-        // Try to find admin document by lowercase email
-        let isAdminUser = isBootstrapAdmin;
-        if (!isAdminUser && currUser.email) {
-          const normalizedEmail = currUser.email.toLowerCase();
-          const adminDoc = await getDoc(doc(db, "admins", normalizedEmail));
-          isAdminUser = adminDoc.exists();
+        if (isBootstrapAdmin) {
+          setIsAdmin(true);
+          console.log("✓ Admin login: Bootstrap email recognized");
+        } else if (currUser.email) {
+          // Try to find admin document by lowercase email
+          try {
+            const normalizedEmail = currUser.email.toLowerCase();
+            const adminRef = doc(db, "admins", normalizedEmail);
+            const adminDoc = await getDoc(adminRef);
+            
+            if (adminDoc.exists()) {
+              setIsAdmin(true);
+              console.log("✓ Admin login: Found in admins collection -", currUser.email);
+            } else {
+              setIsAdmin(false);
+              console.log("✗ Not admin: Not found in admins collection -", currUser.email);
+            }
+          } catch (error) {
+            console.error("Error checking admin status:", error);
+            setIsAdmin(false);
+          }
+        } else {
+          setIsAdmin(false);
         }
-        
-        setIsAdmin(isAdminUser);
       } else {
         setIsAdmin(false);
       }
@@ -63,9 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoadingAdmins(true);
     try {
       const adminsList = await getAdmins();
-      setAdmins(adminsList || []);
+      if (adminsList) {
+        setAdmins(adminsList);
+        console.log("✓ Loaded admins:", adminsList.length);
+      }
     } catch (error) {
       console.error("Error loading admins:", error);
+      setAdmins([]);
     } finally {
       setLoadingAdmins(false);
     }
@@ -73,11 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const addNewAdmin = async (email: string, displayName?: string) => {
     try {
+      console.log("Adding new admin:", email);
       const result = await addAdmin(email, displayName);
       if (result) {
+        console.log("✓ Admin added successfully");
         await refreshAdmins();
         return true;
       }
+      console.error("Admin add returned false");
       return false;
     } catch (error) {
       console.error("Error adding admin:", error);
@@ -87,11 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteAdmin = async (uid: string) => {
     try {
+      console.log("Deleting admin:", uid);
       const result = await removeAdmin(uid);
       if (result) {
+        console.log("✓ Admin deleted successfully");
         await refreshAdmins();
         return true;
       }
+      console.error("Admin delete returned false");
       return false;
     } catch (error) {
       console.error("Error deleting admin:", error);
