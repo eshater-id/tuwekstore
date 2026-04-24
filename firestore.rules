@@ -20,7 +20,8 @@ service cloud.firestore {
       // For bootstrapping: the user email provided in runtime
       return isEmailVerified() && (
         request.auth.token.email == "agus.suyuti1922@gmail.com" ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        // Check if user's email exists in admins collection (stored as lowercase)
+        get(/databases/$(database)/documents/admins/$(request.auth.token.email.lower())).data.email == request.auth.token.email.lower()
       );
     }
 
@@ -80,9 +81,21 @@ service cloud.firestore {
     }
 
     // --- COLLECTION: Admins (Bootstrap) ---
-    match /admins/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if false; // Only manageable via console or special triggers
+    match /admins/{adminId} {
+      function isValidAdmin(data) {
+        return data.email is string && data.email.size() > 0 &&
+               data.addedAt is number &&
+               data.addedBy is string &&
+               (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100));
+      }
+
+      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      
+      allow create: if isAdmin() && isValidAdmin(incoming());
+      
+      allow update: if isAdmin() && isValidAdmin(incoming());
+      
+      allow delete: if isAdmin();
     }
   }
 }

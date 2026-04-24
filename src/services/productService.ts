@@ -4,6 +4,7 @@ import {
   getDoc, 
   doc, 
   addDoc, 
+  setDoc,
   updateDoc, 
   deleteDoc, 
   query, 
@@ -166,17 +167,19 @@ export const addAdmin = async (email: string, displayName?: string) => {
     const user = auth.currentUser;
     if (!user) throw new Error("User tidak terautentikasi");
     
-    // Cari user berdasarkan email dari Firebase Auth (via backend jika perlu)
-    // Untuk saat ini, kita akan menyimpan email dan admin dapat diedit
+    // Use lowercase email as document ID (simple and consistent)
+    const docId = email.toLowerCase();
+    
     const adminDoc = {
-      email,
+      email: email.toLowerCase(),
       displayName: displayName || email.split("@")[0],
       addedAt: Date.now(),
       addedBy: user.email || "unknown"
     };
     
-    // Simpan dengan email sebagai document ID (akan diupdate saat user pertama login)
-    await addDoc(collection(db, "admins"), adminDoc);
+    // Simpan dengan lowercase email sebagai document ID
+    const docRef = doc(db, "admins", docId);
+    await setDoc(docRef, adminDoc);
     return true;
   } catch (error) {
     handleFirestoreError(error, "create", "admins");

@@ -32,9 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currUser);
       if (currUser) {
         // Check if user is in admins collection or is the bootstrap email
-        const adminDoc = await getDoc(doc(db, "admins", currUser.uid));
         const isBootstrapAdmin = currUser.email === "agus.suyuti1922@gmail.com";
-        setIsAdmin(adminDoc.exists() || isBootstrapAdmin);
+        
+        // Try to find admin document by lowercase email
+        let isAdminUser = isBootstrapAdmin;
+        if (!isAdminUser && currUser.email) {
+          const normalizedEmail = currUser.email.toLowerCase();
+          const adminDoc = await getDoc(doc(db, "admins", normalizedEmail));
+          isAdminUser = adminDoc.exists();
+        }
+        
+        setIsAdmin(isAdminUser);
       } else {
         setIsAdmin(false);
       }
