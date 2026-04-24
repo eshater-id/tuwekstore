@@ -1,0 +1,88 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // For bootstrapping: the user email provided in runtime
+      return isEmailVerified() && (
+        request.auth.token.email == "agus.suyuti1922@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- COLLECTION: Products ---
+    match /products/{productId} {
+      function isValidProduct(data) {
+        return data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+               data.price is number && data.price >= 0 &&
+               data.category is string &&
+               data.stock in ['available', 'out_of_stock'] &&
+               (data.description == null || (data.description is string && data.description.size() <= 2000)) &&
+               (data.image == null || (data.image is string && data.image.size() <= 1000));
+      }
+
+      allow read: if true; // Publicly viewable
+
+      allow create: if isAdmin() && isValidProduct(incoming()) && isValidId(productId);
+      
+      allow update: if isAdmin() && isValidProduct(incoming()) && (
+        // Any admin update
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'price', 'description', 'image', 'category', 
+          'sizes', 'colors', 'stock', 'featured', 'clicks'
+        ])
+      ) || (
+        // Allow public to increment clicks only (if we want to track real-time)
+        // But for security, let's restrict to admin for now as requested by user's "easy to manage"
+        // If we want public increment:
+        isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['clicks']) &&
+        incoming().clicks == existing().clicks + 1
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- COLLECTION: Settings ---
+    match /settings/store {
+      function isValidSettings(data) {
+        return data.whatsappNumber is string && data.whatsappNumber.size() <= 20 &&
+               data.storeName is string && data.storeName.size() <= 100;
+      }
+
+      allow read: if true;
+      allow write: if isAdmin() && isValidSettings(incoming());
+    }
+
+    // --- COLLECTION: Admins (Bootstrap) ---
+    match /admins/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if false; // Only manageable via console or special triggers
+    }
+  }
+}

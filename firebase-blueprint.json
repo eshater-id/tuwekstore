@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store items for sale",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the product" },
+        "price": { "type": "number", "description": "Price in IDR" },
+        "description": { "type": "string", "description": "Product details" },
+        "image": { "type": "string", "description": "Google Drive image link" },
+        "category": { "type": "string", "description": "Product category" },
+        "sizes": { "type": "array", "description": "Available sizes" },
+        "colors": { "type": "array", "description": "Available colors" },
+        "stock": { "type": "string", "enum": ["available", "out_of_stock"] },
+        "featured": { "type": "boolean" },
+        "clicks": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "price", "category", "stock"]
+    },
+    "StoreSettings": {
+      "title": "Store Settings",
+      "description": "Global store configuration",
+      "type": "object",
+      "properties": {
+        "whatsappNumber": { "type": "string" },
+        "storeName": { "type": "string" },
+        "storeAddress": { "type": "string" },
+        "googleMapsUrl": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of all products"
+    },
+    "settings/store": {
+      "schema": "StoreSettings",
+      "description": "Single document for store settings"
+    }
+  }
+}
